@@ -47,5 +47,14 @@ npm run build    # static site in dist/
 
 Stack: React 19, TypeScript, Vite, [read-excel-file](https://www.npmjs.com/package/read-excel-file), Vitest.
 
-The GitHub Actions workflow tests every push and pull request, and deploys `main` to GitHub Pages once Pages
-is enabled for the repository (Settings → Pages → Source: GitHub Actions).
+The GitHub Actions workflow runs the tests and build on every push and pull request.
+
+## Hosting on Railway
+
+The repo includes a `Dockerfile` (builds the site, then serves it with Caddy on Railway's `$PORT`) and
+`railway.json`, so Railway needs no extra settings:
+
+1. In Railway, choose **New Project → Deploy from GitHub repo** and pick `appendix-q`.
+2. Once the first deploy finishes, open the service's **Settings → Networking → Generate Domain** to get a public URL.
+
+Every push to `main` redeploys automatically.

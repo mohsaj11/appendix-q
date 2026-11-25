@@ -1,9 +1,8 @@
-import { useEffect, useRef, useState } from 'react'
-import { driveConfigured, pickFromDrive } from '../lib/googleDrive'
+import { useRef, useState } from 'react'
 import { longMonth } from '../lib/months'
 import type { Status, Submission } from '../lib/types'
 
-export interface Staged { key: string; file: File; source: 'computer' | 'drive' }
+export interface Staged { key: string; file: File }
 
 export function UploadPage({ staged, setStaged, uploaded, uploading, onUpload, onChange, onRemove, onClear, onGenerate }: {
   staged: Staged[]
@@ -16,35 +15,18 @@ export function UploadPage({ staged, setStaged, uploaded, uploading, onUpload, o
   onClear: () => void
   onGenerate: () => void
 }) {
-  const [menuOpen, setMenuOpen] = useState(false)
   const [note, setNote] = useState('')
   const [dragging, setDragging] = useState(false)
   const input = useRef<HTMLInputElement>(null)
-  const menu = useRef<HTMLDivElement>(null)
 
-  useEffect(() => {
-    if (!menuOpen) return
-    const close = (e: MouseEvent) => { if (!menu.current?.contains(e.target as Node)) setMenuOpen(false) }
-    document.addEventListener('mousedown', close)
-    return () => document.removeEventListener('mousedown', close)
-  }, [menuOpen])
-
-  const add = (files: File[], source: Staged['source']) => {
+  const add = (files: File[]) => {
     const xlsx = files.filter((f) => /\.xlsx$/i.test(f.name))
     const have = new Set(staged.map((s) => s.file.name + s.file.size))
-    const fresh = xlsx.filter((f) => !have.has(f.name + f.size)).map((file) => ({ key: crypto.randomUUID(), file, source }))
+    const fresh = xlsx.filter((f) => !have.has(f.name + f.size)).map((file) => ({ key: crypto.randomUUID(), file }))
     setStaged([...staged, ...fresh])
     setNote(files.length > xlsx.length ? `${files.length - xlsx.length} file(s) skipped: only .xlsx workbooks can be added.` : '')
   }
 
-  const fromDrive = async () => {
-    setMenuOpen(false)
-    if (!driveConfigured) {
-      setNote('Google Drive needs a one-off setup before it can be used here. For now, download the files from Drive and add them from your computer.')
-      return
-    }
-    try { add(await pickFromDrive(), 'drive') } catch (e) { setNote((e as Error).message) }
-  }
 
   const flagged = uploaded.filter((s) => s.warnings.length)
   const months = [...new Set(uploaded.map((s) => s.month).filter(Boolean))].sort().reverse()
@@ -55,29 +37,13 @@ export function UploadPage({ staged, setStaged, uploaded, uploading, onUpload, o
         className={`card dropzone${dragging ? ' dragging' : ''}`}
         onDragOver={(e) => { e.preventDefault(); setDragging(true) }}
         onDragLeave={() => setDragging(false)}
-        onDrop={(e) => { e.preventDefault(); setDragging(false); add([...e.dataTransfer.files], 'computer') }}
+        onDrop={(e) => { e.preventDefault(); setDragging(false); add([...e.dataTransfer.files]) }}
       >
         <h1>Appendix Q files</h1>
         <p className="muted">Add this month's Appendix Q workbooks (.xlsx), then click Upload.</p>
 
-        <div className="add-menu" ref={menu}>
-          <button className="primary" aria-haspopup="menu" aria-expanded={menuOpen} onClick={() => setMenuOpen(!menuOpen)}>
-            Add files <span aria-hidden>▾</span>
-          </button>
-          {menuOpen && (
-            <div className="menu" role="menu">
-              <button role="menuitem" onClick={() => { setMenuOpen(false); input.current?.click() }}>
-                <span className="menu-icon" aria-hidden>💻</span>
-                <span><strong>From this computer</strong><small>Select as many files as you like</small></span>
-              </button>
-              <button role="menuitem" onClick={fromDrive}>
-                <span className="menu-icon" aria-hidden>☁️</span>
-                <span><strong>From Google Drive</strong><small>{driveConfigured ? 'Pick files from your Drive' : 'Needs setting up first'}</small></span>
-              </button>
-            </div>
-          )}
-          <input ref={input} type="file" accept=".xlsx" multiple hidden onChange={(e) => { add([...(e.target.files ?? [])], 'computer'); e.target.value = '' }} />
-        </div>
+        <button className="primary add-btn" onClick={() => input.current?.click()}>Add files</button>
+        <input ref={input} type="file" accept=".xlsx" multiple hidden onChange={(e) => { add([...(e.target.files ?? [])]); e.target.value = '' }} />
         <p className="muted small">or drag and drop files here</p>
         {note && <p className="note">{note}</p>}
 
@@ -88,7 +54,7 @@ export function UploadPage({ staged, setStaged, uploaded, uploading, onUpload, o
                 <li key={s.key}>
                   <span aria-hidden>📄</span>
                   <span className="name">{s.file.name}</span>
-                  <span className="muted small">{s.source === 'drive' ? 'Google Drive' : `${Math.max(1, Math.round(s.file.size / 1024))} KB`}</span>
+                  <span className="muted small">{Math.max(1, Math.round(s.file.size / 1024))} KB</span>
                   <button className="icon" aria-label={`Remove ${s.file.name}`} onClick={() => setStaged(staged.filter((x) => x.key !== s.key))}>✕</button>
                 </li>
               ))}
